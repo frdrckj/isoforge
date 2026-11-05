@@ -58,6 +58,21 @@ def test_build_rejects_non_dict() -> None:
         build("x")
 
 
+def test_build_rejects_none_field_value() -> None:
+    with pytest.raises(CodecError):
+        build({"t": "0200", "55": None})
+
+
+def test_build_rejects_int_field_value() -> None:
+    with pytest.raises(CodecError):
+        build({"t": "0200", "55": 1})
+
+
+def test_build_rejects_superscript_key() -> None:
+    with pytest.raises(CodecError):
+        build({"t": "0200", "\u00b2": "1"})
+
+
 def test_secondary_bitmap_not_supported() -> None:
     # I set bit 1 so parse must refuse a secondary bitmap.
     raw = b"0200" + b"\x80" + b"\x00" * 7
