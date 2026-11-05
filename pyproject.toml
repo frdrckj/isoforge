@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "isoforge"
+version = "0.1.0"
+description = "Lab CLI for ISO 8583 and EMV message work on localhost"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [
+  { name = "Frederick Jerusha", email = "frederickjerusha@gmail.com" },
+]
+dependencies = [
+  "click==8.5.0",
+  "pyiso8583==4.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.2.0",
+  "ruff==0.17.3",
+  "pip-audit==2.10.1",
+]
+
+[project.scripts]
+isoforge = "isoforge.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/isoforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
