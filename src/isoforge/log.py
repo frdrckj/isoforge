@@ -14,9 +14,9 @@ def run_path(directory: Path, now: datetime | None = None) -> Path:
     return directory / f"{stamp}.jsonl"
 
 
-def append_run(directory: Path, record: dict, secret_pan: str | None) -> Path:
+def append_run(directory: Path, record: dict, full_pan: str | None) -> Path:
     line = json.dumps(record, separators=(",", ":"))
-    if secret_pan and secret_pan in line:
+    if full_pan and full_pan in line:
         raise RuntimeError("refusing to log a full PAN")
     path = run_path(directory)
     path.parent.mkdir(parents=True, exist_ok=True)
