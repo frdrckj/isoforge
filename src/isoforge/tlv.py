@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from isoforge.tags import lookup
 
@@ -18,12 +18,13 @@ class Tag:
     length: int
     value: bytes
     name: str
+    _length_prefix: bytes = field(default=b"", repr=False, compare=False)
 
 
 def parse(data: bytes) -> list[Tag]:
     if not isinstance(data, (bytes, bytearray)):
         raise TLVError("input must be bytes", 0)
-    # DE55 carries at most 255 bytes. I refuse a longer buffer before the walk.
+    # DE55 carries at most 255 bytes, so a longer buffer is rejected before the walk.
     if len(data) > MAX_TLV_BYTES:
         raise TLVError("input exceeds 255 bytes", 0)
     data = bytes(data)
@@ -41,11 +42,19 @@ def parse(data: bytes) -> list[Tag]:
 
 def build(tags: list[Tag]) -> bytes:
     out = bytearray()
-    for item in tags:
-        out += bytes.fromhex(item.tag)
-        out += _length_octets(item)
-        out += item.value
-    return bytes(out)
+    try:
+        for item in tags:
+            if item.length != len(item.value):
+                raise TLVError("length does not match value", len(out))
+            encoded = bytes.fromhex(item.tag) + _length_octets(item) + item.value
+            out += encoded
+        return bytes(out)
+    except TLVError:
+        raise
+    except ValueError as exc:
+        raise TLVError("invalid tag", len(out)) from exc
+    except Exception as exc:
+        raise TLVError("invalid build input", len(out)) from exc
 
 
 def _read_one(data: bytes, offset: int) -> tuple[Tag, int]:
@@ -56,9 +65,13 @@ def _read_one(data: bytes, offset: int) -> tuple[Tag, int]:
     value = data[offset : offset + length]
     offset += length
     tag_hex = tag_bytes.hex().upper()
-    item = Tag(tag=tag_hex, length=length, value=value, name=lookup(tag_hex))
-    # Long-form length octets are part of that tag. I keep them when they still match.
-    item._length_prefix = length_octets
+    item = Tag(
+        tag=tag_hex,
+        length=length,
+        value=value,
+        name=lookup(tag_hex),
+        _length_prefix=length_octets,
+    )
     return item, offset
 
 
@@ -103,10 +116,12 @@ def _at(data: bytes, offset: int, message: str) -> int:
 
 
 def _length_octets(item: Tag) -> bytes:
-    prefix = getattr(item, "_length_prefix", b"")
-    if isinstance(prefix, bytes) and _prefix_length(prefix) == item.length:
+    # A parsed prefix keeps a long-form length on round trip only when it describes this value.
+    real = len(item.value)
+    prefix = item._length_prefix
+    if isinstance(prefix, bytes) and _prefix_length(prefix) == real:
         return prefix
-    return _encode_length(item.length)
+    return _encode_length(real)
 
 
 def _prefix_length(prefix: bytes) -> int | None:
