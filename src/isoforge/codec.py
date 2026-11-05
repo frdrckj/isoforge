@@ -14,6 +14,8 @@ class CodecError(Exception):
 
 
 def build(fields: dict) -> bytes:
+    if not isinstance(fields, dict):
+        raise CodecError("input must be a dict")
     # pyiso8583 writes the computed bitmap back into the dict it encodes.
     doc = dict(fields)
     try:
@@ -26,8 +28,14 @@ def build(fields: dict) -> bytes:
 
 
 def parse(raw: bytes) -> dict:
+    if not isinstance(raw, (bytes, bytearray)):
+        raise CodecError("input must be bytes or bytearray")
     if len(raw) > MAX_MESSAGE_BYTES:
         raise CodecError(f"input exceeds {MAX_MESSAGE_BYTES} bytes")
+    # I only read a primary bitmap. Bit 1 means a secondary bitmap follows,
+    # and I reject that before pyiso8583 looks up a field I don't define.
+    if len(raw) >= 12 and raw[4] & 0x80:
+        raise CodecError("secondary bitmap not supported")
     try:
         decoded, _ = decode(raw, SPEC)
     except DecodeError as exc:
