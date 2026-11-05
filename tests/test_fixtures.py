@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 
-ALLOWED_PANS = {"4111111111111111", "5555555555554444"}
+from isoforge.switch import ALLOWED_PANS
+
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
