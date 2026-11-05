@@ -12,7 +12,7 @@ isoforge send fixtures/0200.json
 isoforge fuzz --seed 1 -n 500
 ```
 
-`docker compose up` starts the switch and a lab container on one lab network. The only published port is `127.0.0.1:8583`. Send prints:
+`docker compose up` starts the switch and a lab container. The switch is on an internal lab network and a second network so the port can be published. The only published port is `127.0.0.1:8583`. Send prints:
 
 ```
 0210 DE39=00
@@ -30,6 +30,16 @@ Without Docker, start the switch yourself:
 
 ```
 isoforge switch --port 8583
+```
+
+## How the pieces fit
+
+The commands are the front door. They pack a message, send it to the mock switch on this computer, and write a run note with the card number masked. The fuzzer uses that same path and records what the switch does with broken copies.
+
+A clickable map of those pieces is in `floorplan/` on this machine. It is not in git. From the repo:
+
+```
+node floorplan/serve.mjs
 ```
 
 ## What the switch answers
