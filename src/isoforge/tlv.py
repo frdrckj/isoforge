@@ -46,7 +46,11 @@ def build(tags: list[Tag]) -> bytes:
         for item in tags:
             if item.length != len(item.value):
                 raise TLVError("length does not match value", len(out))
-            encoded = bytes.fromhex(item.tag) + _length_octets(item) + item.value
+            tag_bytes = bytes.fromhex(item.tag)
+            _validate_tag(tag_bytes, len(out))
+            encoded = tag_bytes + _length_octets(item) + item.value
+            if len(out) + len(encoded) > MAX_TLV_BYTES:
+                raise TLVError("output exceeds 255 bytes", len(out))
             out += encoded
         return bytes(out)
     except TLVError:
@@ -89,6 +93,21 @@ def _read_tag(data: bytes, offset: int) -> tuple[bytes, int]:
         offset += 1
         if nxt & 0x80 == 0:
             return bytes(tag), offset
+
+
+def _validate_tag(tag_bytes: bytes, offset: int) -> None:
+    if len(tag_bytes) == 0 or len(tag_bytes) > MAX_TAG_BYTES:
+        raise TLVError("invalid tag", offset)
+    first = tag_bytes[0]
+    if first & 0x1F != 0x1F:
+        if len(tag_bytes) != 1:
+            raise TLVError("invalid tag", offset)
+        return
+    if len(tag_bytes) == 1 or tag_bytes[-1] & 0x80 != 0:
+        raise TLVError("invalid tag", offset)
+    for nxt in tag_bytes[1:-1]:
+        if nxt & 0x80 == 0:
+            raise TLVError("invalid tag", offset)
 
 
 def _read_length(data: bytes, offset: int) -> tuple[int, bytes, int]:
