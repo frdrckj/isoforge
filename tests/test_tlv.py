@@ -96,6 +96,63 @@ def test_build_mismatched_length_raises() -> None:
     assert "length does not match value" in str(exc.value)
 
 
+def test_build_rejects_incomplete_multibyte_tag() -> None:
+    item = Tag(tag="1F", length=1, value=b"\x00", name="")
+    with pytest.raises(TLVError) as exc:
+        build([item])
+    assert exc.value.offset == 0
+    assert "invalid tag" in str(exc.value)
+
+
+def test_build_rejects_high_bit_last_tag_byte() -> None:
+    item = Tag(tag="9F80", length=1, value=b"\x00", name="")
+    with pytest.raises(TLVError) as exc:
+        build([item])
+    assert exc.value.offset == 0
+    assert "invalid tag" in str(exc.value)
+
+
+def test_build_rejects_empty_tag() -> None:
+    item = Tag(tag="", length=0, value=b"", name="")
+    with pytest.raises(TLVError) as exc:
+        build([item])
+    assert exc.value.offset == 0
+    assert "invalid tag" in str(exc.value)
+
+
+def test_build_rejects_oversize_output() -> None:
+    value = bytes(300)
+    item = Tag(tag="95", length=300, value=value, name="")
+    with pytest.raises(TLVError) as exc:
+        build([item])
+    assert exc.value.offset == 0
+    assert "output exceeds 255 bytes" in str(exc.value)
+    first = Tag(tag="95", length=5, value=b"\x00" * 5, name=lookup("95"))
+    second = Tag(tag="82", length=250, value=bytes(250), name=lookup("82"))
+    with pytest.raises(TLVError) as exc:
+        build([first, second])
+    assert exc.value.offset == len(build([first]))
+    assert "output exceeds 255 bytes" in str(exc.value)
+
+
+def test_build_valid_tags_round_trip() -> None:
+    items = [
+        Tag(tag="95", length=5, value=bytes.fromhex("0000008000"), name=lookup("95")),
+        Tag(tag="82", length=2, value=bytes.fromhex("1980"), name=lookup("82")),
+        Tag(tag="9F26", length=8, value=bytes.fromhex("AABBCCDDEEFF0011"), name=lookup("9F26")),
+        Tag(tag="5F2A", length=2, value=bytes.fromhex("0840"), name=lookup("5F2A")),
+        Tag(tag="DF8101", length=1, value=b"\xff", name=lookup("DF8101")),
+    ]
+    encoded = build(items)
+    assert parse(encoded) == items
+    assert build(parse(build(items))) == encoded
+    exact = Tag(tag="95", length=252, value=bytes(252), name=lookup("95"))
+    exact_encoded = build([exact])
+    assert len(exact_encoded) == 255
+    assert parse(exact_encoded) == [exact]
+    assert build(parse(exact_encoded)) == exact_encoded
+
+
 def test_truncated_value() -> None:
     with pytest.raises(TLVError) as exc:
         parse(bytes.fromhex("9F2608AABB"))
