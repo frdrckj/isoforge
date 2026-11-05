@@ -23,4 +23,4 @@ jobs:
       - name: pytest
         run: pytest
       - name: pip-audit
-        run: pip-audit
+        run: pip-audit --skip-editable
