@@ -24,6 +24,9 @@ def build(fields: dict) -> bytes:
         raise CodecError(exc.msg, field=exc.field) from exc
     except KeyError as exc:
         raise CodecError("field is not defined in the spec", field=str(exc.args[0])) from exc
+    except (TypeError, ValueError) as exc:
+        # I catch these because pyiso8583 leaks them for a bad value or a numeric-looking key.
+        raise CodecError("invalid field value or key") from exc
     return bytes(raw)
 
 
