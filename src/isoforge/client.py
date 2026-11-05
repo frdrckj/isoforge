@@ -74,14 +74,14 @@ def send(
     except (CodecError, TLVError) as exc:
         raise ClientError(str(exc)) from exc
     pan = fields.get("2")
-    secret = pan if isinstance(pan, str) else None
+    full_pan = pan if isinstance(pan, str) else None
     record = {
         "mti": fields.get("t"),
-        "pan": mask_pan(secret) if secret is not None else None,
+        "pan": mask_pan(full_pan) if full_pan is not None else None,
         "de11": fields.get("11"),
         "de41": fields.get("41"),
         "de39": reply.get("39"),
         "de55": fields.get("55"),
     }
-    append_run(log_dir, record, secret)
+    append_run(log_dir, record, full_pan)
     return reply
