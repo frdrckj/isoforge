@@ -1,6 +1,8 @@
 from iso8583 import DecodeError, EncodeError, decode, encode
 
 from isoforge.spec import SPEC
+from isoforge.tlv import Tag, TLVError
+from isoforge.tlv import parse as parse_tlv
 
 MAX_MESSAGE_BYTES = 8192
 
@@ -11,6 +13,12 @@ class CodecError(Exception):
         if field is not None:
             message = f"{message}: field {field}"
         super().__init__(message)
+
+
+class ParsedMessage(dict):
+    def __init__(self, fields: dict, de55: list[Tag] | None) -> None:
+        super().__init__(fields)
+        self.de55 = de55
 
 
 def build(fields: dict) -> bytes:
@@ -47,4 +55,14 @@ def parse(raw: bytes) -> dict:
         raise CodecError("field is not defined in the spec", field=str(exc.args[0])) from exc
     # Bitmap is derived from which fields are present.
     decoded.pop("p", None)
-    return decoded
+    # Field 55 stays the hex string so build() replays the original bytes.
+    # The tag list sits on the dict beside that string. Dict equality ignores it.
+    de55: list[Tag] | None = None
+    if "55" in decoded:
+        try:
+            de55 = parse_tlv(bytes.fromhex(decoded["55"]))
+        except TLVError as exc:
+            raise CodecError(str(exc), field="55") from exc
+        except ValueError as exc:
+            raise CodecError("invalid DE55 hex", field="55") from exc
+    return ParsedMessage(decoded, de55)
