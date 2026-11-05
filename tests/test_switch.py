@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 from isoforge.cli import main
 from isoforge.codec import MAX_MESSAGE_BYTES, build, parse
-from isoforge.switch import SwitchError, serve
+from isoforge.switch import SwitchError, _bind_hosts, serve
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -74,6 +74,10 @@ def test_switch_refuses_non_loopback() -> None:
             await server.wait_closed()
 
     asyncio.run(check())
+
+
+def test_bind_hosts_are_loopback_outside_docker() -> None:
+    assert _bind_hosts() == ["127.0.0.1"]
 
 
 def test_switch_help() -> None:

@@ -1,0 +1,27 @@
+services:
+  switch:
+    build: .
+    command: ["switch", "--port", "8583"]
+    ports:
+      - "127.0.0.1:8583:8583"
+    networks:
+      - lab
+      - publish
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8583), 2); s.close()"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+  lab:
+    build: .
+    entrypoint: ["sleep", "infinity"]
+    depends_on:
+      switch:
+        condition: service_healthy
+    networks:
+      - lab
+
+networks:
+  lab:
+    internal: true
+  publish:
