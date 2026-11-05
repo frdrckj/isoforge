@@ -6,6 +6,7 @@ import click
 
 from isoforge import __version__
 from isoforge.client import DEFAULT_TIMEOUT, ClientError, send
+from isoforge.fuzz import execute
 from isoforge.switch import run
 
 
@@ -51,6 +52,23 @@ def send_command(
     except ClientError as exc:
         raise click.ClickException(str(exc)) from exc
     click.echo(f"{reply.get('t')} DE39={reply.get('39')}")
+
+
+@main.command("fuzz")
+@click.option("--seed", required=True, type=int)
+@click.option("-n", "count", required=True, type=click.IntRange(1, 100000))
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8583, show_default=True, type=click.IntRange(0, 65535))
+@click.option("--timeout", default=1.0, show_default=True, type=float)
+def fuzz_command(seed: int, count: int, host: str, port: int, timeout: float) -> None:
+    """Mutate the 0200 fixture and record how the switch answers."""
+    try:
+        summary = execute(seed, count, host, port, timeout)
+    except ClientError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(summary.text())
+    if summary.crashes:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
