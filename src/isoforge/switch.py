@@ -1,5 +1,9 @@
 import asyncio
+import fcntl
 import ipaddress
+import os
+import socket
+import struct
 from collections.abc import Callable
 
 from isoforge.codec import MAX_MESSAGE_BYTES, CodecError, build, parse
@@ -115,7 +119,33 @@ async def serve(host: str = "127.0.0.1", port: int = 0) -> asyncio.Server:
     return await asyncio.start_server(_client, host, port)
 
 
+def _iface_ipv4(name: str) -> str | None:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # SIOCGIFADDR. Docker publishes to the container address, not to 0.0.0.0.
+        buf = struct.pack("256s", name.encode()[:15])
+        out = fcntl.ioctl(sock.fileno(), 0x8915, buf)
+    except OSError:
+        return None
+    finally:
+        sock.close()
+    return socket.inet_ntoa(out[20:24])
+
+
+def _bind_hosts() -> list[str]:
+    hosts = ["127.0.0.1"]
+    if not os.path.exists("/.dockerenv"):
+        return hosts
+    for name in os.listdir("/sys/class/net"):
+        if name == "lo":
+            continue
+        ip = _iface_ipv4(name)
+        if ip and ip not in hosts and ip != "0.0.0.0":
+            hosts.append(ip)
+    return hosts
+
+
 async def run(port: int) -> None:
-    server = await serve("127.0.0.1", port)
+    server = await asyncio.start_server(_client, _bind_hosts(), port)
     async with server:
         await server.serve_forever()
